@@ -15,6 +15,7 @@ import java.awt.SystemTray;
 import java.awt.TrayIcon;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.util.Objects;
 
 public class App extends Application {
 
@@ -36,7 +37,7 @@ public class App extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        // 阻止 JavaFX 窗口隐藏后自动退出
+        // ================= 核心：阻止 JavaFX 窗口隐藏后自动退出 =================
         Platform.setImplicitExit(false);
 
         configManager = new ConfigManager();
@@ -44,6 +45,7 @@ public class App extends Application {
         customImagePath = configManager.getImagePath();
         String savedMessage = configManager.getMessage();
 
+        // 这里我默认你已经在 CountdownManager.java 里修复了 workMinutes * 60 的乘法！
         countdownManager = new CountdownManager(this, this::updateTimeDisplay);
 
         warningPopup = new WarningPopup(
@@ -72,12 +74,24 @@ public class App extends Application {
         lockMessageInput = new TextField(savedMessage);
         lockMessageInput.setStyle("-fx-font-size: 14px; -fx-pref-width: 200px; -fx-padding: 8px; -fx-background-radius: 6px; -fx-border-color: #ddd; -fx-border-radius: 6px;");
 
+        // --- 修复开始：定义图片选择部分的组件，并限制标签宽度 ---
         Button selectImageBtn = new Button("选择图片");
         selectImageBtn.setStyle("-fx-background-color: #f0f0f0; -fx-text-fill: #333; -fx-padding: 8px 15px; -fx-background-radius: 6px; -fx-cursor: hand;");
 
         String imageLabelText = customImagePath.isEmpty() ? "未选择文件" : new File(customImagePath).getName();
         selectedImageLabel = new Label(imageLabelText);
-        selectedImageLabel.setStyle("-fx-text-fill: #999; -fx-font-size: 12px;");
+        // 【关键修复1】：限制最大宽度，与上面的输入框prefWidth一致 (200px)
+        selectedImageLabel.setMaxWidth(200);
+        // 【关键修复2】：设置截断模式为省略号
+        selectedImageLabel.setTextOverrun(javafx.scene.control.OverrunStyle.ELLIPSIS);
+        // 可以在 style 中明确一下，防止 Grid 的干扰导致它无法自动缩小
+        selectedImageLabel.setStyle("-fx-text-fill: #999; -fx-font-size: 12px; -fx-min-width: 0;");
+
+        HBox imageBox = new HBox(10, selectImageBtn, selectedImageLabel);
+        imageBox.setAlignment(Pos.CENTER_LEFT);
+        // 确保它不会在Grid中水平增长，干扰其他列
+        GridPane.setHgrow(imageBox, Priority.NEVER);
+        // --- 修复结束 ---
 
         selectImageBtn.setOnAction(e -> {
             FileChooser fileChooser = new FileChooser();
@@ -86,13 +100,15 @@ public class App extends Application {
             File selectedFile = fileChooser.showOpenDialog(primaryStage);
             if (selectedFile != null) {
                 customImagePath = selectedFile.getAbsolutePath();
+                // 这里更新setText后，JavaFX会根据我们设置的OverrunStyle自动应用省略号
                 selectedImageLabel.setText(selectedFile.getName());
             }
         });
 
+        // 将修复后的 imageBox 添加到 Grid
         settingsGrid.add(new Label("专注时长 (分钟):"), 0, 0); settingsGrid.add(workDurationInput, 1, 0);
         settingsGrid.add(new Label("锁屏文案:"), 0, 1); settingsGrid.add(lockMessageInput, 1, 1);
-        settingsGrid.add(new Label("锁屏配图:"), 0, 2); settingsGrid.add(new HBox(10, selectImageBtn, selectedImageLabel), 1, 2);
+        settingsGrid.add(new Label("锁屏配图:"), 0, 2); settingsGrid.add(imageBox, 1, 2); // 这里用 HBox
 
         Button saveBtn = new Button("保存并重新计时");
         saveBtn.setStyle("-fx-background-color: #007AFF; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 12px 40px; -fx-background-radius: 8px; -fx-cursor: hand;");
@@ -112,22 +128,31 @@ public class App extends Application {
         primaryStage.setScene(scene);
         primaryStage.setResizable(false);
 
-        // 拦截关闭按钮：改为隐藏窗口
+        // ================= 拦截关闭按钮：改为隐藏窗口 =================
         primaryStage.setOnCloseRequest(event -> {
             event.consume();
-            primaryStage.hide();
+            primaryStage.hide(); // 注意：这里改成了 hide()，彻底从任务栏消失，只留托盘
         });
 
-        // 初始化系统托盘
+        // ================= 设置窗口图标 =================
+        try {
+            // 加载 resources 目录下的 icon.png
+            javafx.scene.image.Image appIcon = new javafx.scene.image.Image(Objects.requireNonNull(getClass().getResourceAsStream("/icon.png")));
+            primaryStage.getIcons().add(appIcon);
+        } catch (Exception e) {
+            System.out.println("图标加载失败，请检查 resources 目录下是否存在 icon.png");
+        }
+
+        // ================= 初始化系统托盘 =================
         initSystemTray(primaryStage);
 
         primaryStage.show();
 
+        // 初次启动立刻更新一次界面
         updateTimeDisplay(workMinutes * 60);
         countdownManager.startCountdown(workMinutes);
     }
 
-    // ================= 初始化系统托盘 =================
     private void initSystemTray(Stage primaryStage) {
         if (!SystemTray.isSupported()) {
             System.out.println("当前系统不支持系统托盘");
@@ -139,10 +164,11 @@ public class App extends Application {
         // 初始占位图标
         BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_RGB);
         java.awt.Graphics2D g = image.createGraphics();
-        g.setColor(java.awt.Color.decode("#007AFF"));
+        g.setColor(java.awt.Color.decode("#007AFF")); // 苹果蓝
         g.fillRect(0, 0, 16, 16);
         g.dispose();
 
+        // 这里初始化只给个占位符，马上就会被 updateTimeDisplay 覆盖
         trayIcon = new TrayIcon(image, "ForceBreak - Calculating...");
         trayIcon.setImageAutoSize(true);
 
@@ -151,7 +177,7 @@ public class App extends Application {
             primaryStage.toFront();
         }));
 
-        // 使用纯英文菜单，彻底避开底层 AWT 字符集乱码的坑
+        // 使用纯英文菜单，彻底避开底层 AWT GBK 乱码的坑
         java.awt.PopupMenu popup = new java.awt.PopupMenu();
 
         java.awt.MenuItem showItem = new java.awt.MenuItem("Show Panel");
@@ -162,12 +188,12 @@ public class App extends Application {
 
         java.awt.MenuItem exitItem = new java.awt.MenuItem("Exit");
         exitItem.addActionListener(e -> {
-            tray.remove(trayIcon);
-            realExit();
+            tray.remove(trayIcon); // 从托盘移除图标
+            realExit();            // 彻底结束程序
         });
 
         popup.add(showItem);
-        popup.addSeparator();
+        popup.addSeparator(); // 加一条分割线
         popup.add(exitItem);
 
         trayIcon.setPopupMenu(popup);
@@ -185,24 +211,43 @@ public class App extends Application {
         } catch (NumberFormatException ex) {
             workMinutes = 60;
         }
+
         configManager.saveConfig(workMinutes, lockMessageInput.getText(), customImagePath);
         System.out.println("设置已保存并生效！");
+
+        // 立刻手动刷新界面和托盘的时间显示，消除 1 秒的视觉延迟
+        updateTimeDisplay(workMinutes * 60);
+
         countdownManager.startCountdown(workMinutes);
+
+        // 保存后立刻隐藏主窗口
+        Stage stage = (Stage) workDurationInput.getScene().getWindow();
+        if (stage != null) {
+            stage.hide();
+        }
     }
 
     private void realExit() {
         if (countdownManager != null) {
             countdownManager.stopCountdown();
         }
-        Platform.exit();
+        Platform.exit(); // 真正结束 JavaFX 线程
         System.exit(0);
     }
 
-    // ================= 更新时间与动态图标 =================
+    // 更新时间与动态图标的黑科技方法
     public void updateTimeDisplay(int totalSeconds) {
-        int minutes = totalSeconds / 60;
+        // 计算时、分、秒用于主 UI
+        int hours = totalSeconds / 3600;
+        int minutes = (totalSeconds % 3600) / 60;
         int seconds = totalSeconds % 60;
-        String timeStr = String.format("%02d:%02d", minutes, seconds);
+
+        String timeStr;
+        if (hours > 0) {
+            timeStr = String.format("%02d:%02d:%02d", hours, minutes, seconds);
+        } else {
+            timeStr = String.format("%02d:%02d", minutes, seconds);
+        }
 
         // 1. 更新主界面大字
         if (Platform.isFxApplicationThread()) {
@@ -215,16 +260,18 @@ public class App extends Application {
         if (trayIcon != null) {
             java.awt.EventQueue.invokeLater(() -> {
                 // 更新悬停文字
-                trayIcon.setToolTip("距离休息还有: " + timeStr);
+                trayIcon.setToolTip("Time Left to Break: " + timeStr);
 
                 // 黑科技：动态重绘图标
                 String displayStr;
                 java.awt.Color bgColor;
 
                 if (totalSeconds >= 60) {
-                    // 大于1分钟，显示分钟数（向上取整，比如 59分01秒 显示 60）
+                    // 大于1分钟，显示向上取整的分钟数（比如 1分01秒 显示 2）
                     int displayMins = (int) Math.ceil(totalSeconds / 60.0);
-                    displayStr = String.valueOf(displayMins);
+
+                    // 为了防止 1 小时显示 60 太宽挤不下，我们需要对超大数字优化一下显示
+                    displayStr = displayMins > 99 ? "99+" : String.valueOf(displayMins);
                     bgColor = java.awt.Color.decode("#007AFF"); // 蓝色背景
                 } else {
                     // 最后 1 分钟，直接显示秒数倒计时，背景变橙色警告！
