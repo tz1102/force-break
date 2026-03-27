@@ -51,9 +51,7 @@ public class App extends Application {
                 () -> System.out.println("用户忽略了弹窗")
         );
 
-        lockScreenStage = new LockScreenStage(() -> {
-            countdownManager.startCountdown(workMinutes);
-        });
+        lockScreenStage = new LockScreenStage(() -> countdownManager.startCountdown(workMinutes));
 
         // ================= UI 初始化 =================
         timeDisplayLabel = new Label("00:00");
@@ -145,7 +143,7 @@ public class App extends Application {
         g.fillRect(0, 0, 16, 16);
         g.dispose();
 
-        trayIcon = new TrayIcon(image, "ForceBreak - 正在计算时间...");
+        trayIcon = new TrayIcon(image, "ForceBreak - Calculating...");
         trayIcon.setImageAutoSize(true);
 
         trayIcon.addActionListener(e -> Platform.runLater(() -> {
@@ -153,19 +151,16 @@ public class App extends Application {
             primaryStage.toFront();
         }));
 
-        // 解决菜单乱码：显式设置微软雅黑字体
-        java.awt.Font chineseFont = new java.awt.Font("Microsoft YaHei", java.awt.Font.PLAIN, 12);
+        // 使用纯英文菜单，彻底避开底层 AWT 字符集乱码的坑
         java.awt.PopupMenu popup = new java.awt.PopupMenu();
 
-        java.awt.MenuItem showItem = new java.awt.MenuItem("显示主界面 (Show)");
-        showItem.setFont(chineseFont); // 应用字体
+        java.awt.MenuItem showItem = new java.awt.MenuItem("Show Panel");
         showItem.addActionListener(e -> Platform.runLater(() -> {
             primaryStage.show();
             primaryStage.toFront();
         }));
 
-        java.awt.MenuItem exitItem = new java.awt.MenuItem("完全退出 (Exit)");
-        exitItem.setFont(chineseFont); // 应用字体
+        java.awt.MenuItem exitItem = new java.awt.MenuItem("Exit");
         exitItem.addActionListener(e -> {
             tray.remove(trayIcon);
             realExit();
@@ -216,29 +211,47 @@ public class App extends Application {
             Platform.runLater(() -> timeDisplayLabel.setText(timeStr));
         }
 
-        // 2. 更新系统托盘
+        // 2. 更新系统托盘动态图标
         if (trayIcon != null) {
             java.awt.EventQueue.invokeLater(() -> {
-                // 更新悬停文字（需要鼠标重新移入才会刷新可见）
+                // 更新悬停文字
                 trayIcon.setToolTip("距离休息还有: " + timeStr);
 
-                // 黑科技：动态重绘图标，把剩余分钟数直接画在图标上！
+                // 黑科技：动态重绘图标
+                String displayStr;
+                java.awt.Color bgColor;
+
+                if (totalSeconds >= 60) {
+                    // 大于1分钟，显示分钟数（向上取整，比如 59分01秒 显示 60）
+                    int displayMins = (int) Math.ceil(totalSeconds / 60.0);
+                    displayStr = String.valueOf(displayMins);
+                    bgColor = java.awt.Color.decode("#007AFF"); // 蓝色背景
+                } else {
+                    // 最后 1 分钟，直接显示秒数倒计时，背景变橙色警告！
+                    displayStr = String.valueOf(totalSeconds);
+                    bgColor = java.awt.Color.decode("#FF9500"); // 橙色背景
+                }
+
                 BufferedImage dynamicImage = new BufferedImage(16, 16, BufferedImage.TYPE_INT_RGB);
                 java.awt.Graphics2D g = dynamicImage.createGraphics();
 
-                // 画蓝色背景
-                g.setColor(java.awt.Color.decode("#007AFF"));
+                // 开启抗锯齿，让画出来的数字更平滑清晰
+                g.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+                // 画背景色
+                g.setColor(bgColor);
                 g.fillRect(0, 0, 16, 16);
 
-                // 画白色文字 (剩余分钟数)
+                // 画白色数字
                 g.setColor(java.awt.Color.WHITE);
                 g.setFont(new java.awt.Font("Arial", java.awt.Font.BOLD, 10));
 
-                // 居中绘制数字
-                String minStr = String.valueOf(minutes);
-                int stringWidth = g.getFontMetrics().stringWidth(minStr);
+                // 计算文字宽度以实现居中
+                int stringWidth = g.getFontMetrics().stringWidth(displayStr);
                 int x = (16 - stringWidth) / 2;
-                g.drawString(minStr, x, 12);
+                int y = 12; // 文字基线
+
+                g.drawString(displayStr, x, y);
                 g.dispose();
 
                 // 实时替换托盘图标
@@ -262,7 +275,7 @@ public class App extends Application {
     }
 
     @Override
-    public void stop() throws Exception {
+    public void stop() {
         realExit();
     }
 
