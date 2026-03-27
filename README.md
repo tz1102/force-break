@@ -40,3 +40,48 @@ cd force-break
 
 # 3. 运行测试项目
 mvn clean javafx:run
+```
+
+### 3. 编译原生 EXE (Native Image)
+本项目利用 GraalVM 和 GluonFX 插件将 Java 应用程序编译为 Windows 原生可执行文件。在确保环境配置正确（如 MSVC 编译工具链）的情况下，执行以下命令：
+
+```bash
+mvn gluonfx:build
+```
+
+编译成功后，可执行文件将生成在 target/gluonfx/x86_64-windows/ 目录下。
+
+## ⚙️ 配置与自定义
+软件支持通过本地配置文件（如 config.json）进行高度自定义，打造属于你自己的休息提醒：
+```json
+{
+  "workDurationMinutes": 60,
+  "delayDurationMinutes": 15,
+  "lockScreenImagePath": "C:/images/smile.jpg",
+  "lockScreenMessage": "工作辛苦了，该让你的颈椎休息一会儿啦！",
+  "autoStart": true
+}
+```
+
+## 📮 关注与交流
+欢迎在各类社交平台（如抖音、小红书等）关注我的账号获取最新动态：
+
+- 社交账号: [微信:ztxp1102]
+
+- 视频平台: [在此处替换为你的账号名称/链接]
+
+## 🤝 参与贡献
+欢迎提交 Issue 或 Pull Request！
+
+1. Fork 本仓库
+
+2. 创建你的特性分支 (git checkout -b feature/AmazingFeature)
+
+3. 提交你的更改 (git commit -m 'Add some AmazingFeature')
+
+4. 推送到分支 (git push origin feature/AmazingFeature)
+
+5. 开启一个 Pull Request
+
+## 📄 开源协议
+本项目采用 MIT License 协议开源。欢迎自由使用、修改和分发。
