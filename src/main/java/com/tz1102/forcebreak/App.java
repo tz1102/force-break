@@ -28,6 +28,7 @@ public class App extends Application {
     private TextField workDurationInput;
     private TextField lockMessageInput;
     private Label selectedImageLabel;
+    private CheckBox autoStartCheckbox;
 
     // 把托盘图标提升为全局变量，方便后续每秒更新
     private TrayIcon trayIcon;
@@ -105,10 +106,18 @@ public class App extends Application {
             }
         });
 
-        // 将修复后的 imageBox 添加到 Grid
+        // --- 新增：开机自启复选框 ---
+        autoStartCheckbox = new CheckBox("随 Windows 开机自动运行");
+        // 从注册表读取真实状态，回显到 UI 上
+        autoStartCheckbox.setSelected(AutoStartUtil.isAutoStartEnabled());
+        autoStartCheckbox.setStyle("-fx-font-size: 14px; -fx-text-fill: #333; -fx-cursor: hand;");
+
+        // 将之前的所有组件和新复选框一起放入 Grid (注意行号 index 变化)
         settingsGrid.add(new Label("专注时长 (分钟):"), 0, 0); settingsGrid.add(workDurationInput, 1, 0);
         settingsGrid.add(new Label("锁屏文案:"), 0, 1); settingsGrid.add(lockMessageInput, 1, 1);
-        settingsGrid.add(new Label("锁屏配图:"), 0, 2); settingsGrid.add(imageBox, 1, 2); // 这里用 HBox
+        settingsGrid.add(new Label("锁屏配图:"), 0, 2); settingsGrid.add(imageBox, 1, 2);
+        // 放在第 4 行
+        settingsGrid.add(new Label("开机启动:"), 0, 3); settingsGrid.add(autoStartCheckbox, 1, 3);
 
         Button saveBtn = new Button("保存并重新计时");
         saveBtn.setStyle("-fx-background-color: #007AFF; -fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold; -fx-padding: 12px 40px; -fx-background-radius: 8px; -fx-cursor: hand;");
@@ -213,6 +222,9 @@ public class App extends Application {
         }
 
         configManager.saveConfig(workMinutes, lockMessageInput.getText(), customImagePath);
+        // --- 新增：保存时应用开机自启状态 ---
+        AutoStartUtil.setAutoStart(autoStartCheckbox.isSelected());
+
         System.out.println("设置已保存并生效！");
 
         // 立刻手动刷新界面和托盘的时间显示，消除 1 秒的视觉延迟
