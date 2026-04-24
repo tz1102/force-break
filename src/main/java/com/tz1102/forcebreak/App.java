@@ -21,7 +21,7 @@ public class App extends Application {
 
     private CountdownManager countdownManager;
     private WarningPopup warningPopup;
-    private LockScreenStage lockScreenStage;
+//    private LockScreenStage lockScreenStage;
     private ConfigManager configManager;
 
     private Label timeDisplayLabel;
@@ -53,8 +53,6 @@ public class App extends Application {
                 () -> countdownManager.addDelay(15),
                 () -> System.out.println("用户忽略了弹窗")
         );
-
-        lockScreenStage = new LockScreenStage(() -> countdownManager.startCountdown(workMinutes));
 
         // ================= UI 初始化 =================
         timeDisplayLabel = new Label("00:00");
@@ -328,9 +326,24 @@ public class App extends Application {
     }
 
     public void triggerLockScreen() {
-        if (warningPopup != null && warningPopup.isShowing()) warningPopup.hide();
-        lockScreenStage.updateContent(lockMessageInput.getText(), customImagePath);
-        if (!lockScreenStage.isShowing()) lockScreenStage.showLockScreen();
+        // 1. 锁屏前，先隐藏右下角的警告弹窗（保持不变）
+        if (warningPopup != null && warningPopup.isShowing()) {
+            warningPopup.hide();
+        }
+        // 2. 召唤大管家，接管所有屏幕！
+        // 参数1：锁屏文案
+        // 参数2：图片路径
+        // 参数3：点击解锁(X)后的回调动作 -> 重新开始倒计时
+        LockScreenManager.showAllScreens(
+                lockMessageInput.getText(),
+                customImagePath,
+                () -> {
+                    // 这个 Lambda 表达式里的代码，只有在用户点击了屏幕右上角的 X 时才会被执行
+                    System.out.println("用户已解锁，重新开始计时...");
+                    // 重新启动你的专注倒计时 (假设你的重置方法叫这个)
+                    countdownManager.startCountdown(workMinutes);
+                }
+        );
     }
 
     @Override

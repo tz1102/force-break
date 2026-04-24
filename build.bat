@@ -23,7 +23,7 @@ copy target\force-break-1.0-SNAPSHOT.jar target\app-in\ >nul
 
 echo [4/4] 正在生成专属 EXE (带有柴犬图标)...
 :: 这里填入你昨天成功的终极打包命令，注意把图标路径带上
-"D:\jdk21\bin\jpackage.exe" --type app-image --name ForceBreak --icon src\main\resources\icon.ico --input target\app-in --main-jar force-break-1.0-SNAPSHOT.jar --main-class com.tz1102.forcebreak.Launcher --dest release --add-modules java.desktop,jdk.unsupported,java.logging
+"D:\jdk21\bin\jpackage.exe" --type app-image --name ForceBreak --icon src\main\resources\icon.ico --input target\app-in --main-jar force-break-1.1.jar --main-class com.tz1102.forcebreak.Launcher --dest release --add-modules java.desktop,jdk.unsupported,java.logging
 
 echo ==========================================
 echo   打包大功告成！EXE 已生成在 release\ForceBreak 目录下
